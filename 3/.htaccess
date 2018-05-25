@@ -9,7 +9,7 @@ deny from all
 
 RewriteEngine On
 Options +FollowSymLinks 
-RewriteBase /api/2_dev
+RewriteBase /api/3
 
 RewriteRule ^(.*)$  index.php?%{QUERY_STRING}
 
@@ -21,4 +21,4 @@ php_value docref_ext 0
 
 #enable PHP error logging
 php_flag  log_errors on
-php_value error_log  /home/e/edgestile/admin/home/siteedit/upload/api/2_dev/PHP_errors.log
+php_value error_log  /home/e/edgestile/admin/home/siteedit/upload/api/3/PHP_errors.log

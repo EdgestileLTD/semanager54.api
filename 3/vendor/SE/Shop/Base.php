@@ -424,13 +424,45 @@ class Base extends CustomBase
     protected function correctValuesBeforeSave()
     {
         $this->debugging('funct', __FUNCTION__.' '.__LINE__, __CLASS__, '[comment]');
+
+        if (isset($this->input["idImage"]) && empty($this->input["idImage"]))
+            $this->input["idImage"] = null;
+
         return true;
+
     }
 
     protected function correctItemsBeforeFetch($items = [])
     {
         $this->debugging('funct', __FUNCTION__.' '.__LINE__, __CLASS__, '[comment]');
+
+        foreach ($items as &$item)
+            $item = $this->correctValuesBeforeInfo($item);
+
         return $items;
+    }
+
+    protected function correctValuesBeforeInfo($item)
+    {
+        if (!empty($item["imagePath"])) {
+            $root = $_SERVER['DOCUMENT_ROOT'];
+            $item["isUploaded"] = true;
+            $item["imageUrl"] = $this->protocol . "://" . HOSTNAME . "/" . $this->dirImages . "/" . $item["imagePath"];
+            $ext = getExtFile($item["imagePath"]);
+            $size = "{$this->imagePreviewSize}x{$this->imagePreviewSize}";
+            $file = md5("/" . $this->dirImages . "/" . $item["imagePath"]) . "_s{$size}." . $ext;
+            $path = $this->dirThumbs . "/" . substr($file, 0, 2) . '/';
+            $path .= substr($file, 2, 2) . '/';
+            $fileName = $root . "/" . $path . $file;
+            if (file_exists($fileName))
+                $item["imageUrlPreview"] = $this->protocol . "://" . HOSTNAME . "/" . $path . $file;
+            else {
+                $image = '/images/' . $item["imagePath"];
+                $item["imageUrlPreview"] = $this->protocol . "://" .
+                    HOSTNAME . "/" . (new \plugin_image())->getImage($image, $size);
+            }
+        }
+        return $item;
     }
 
     protected function saveAddInfo()
@@ -632,11 +664,17 @@ class Base extends CustomBase
     public function post($tempFile = FALSE)
     {
         $this->debugging('funct', __FUNCTION__.' '.__LINE__, __CLASS__, '[comment]');
+
+        $this->input = $_POST;
+
         $countFiles = count($_FILES);
         $ups = 0;
         $items = [];
         if ($tempFile == true) $dir = DOCUMENT_ROOT . "/files/tempfiles";
         else $dir = DOCUMENT_ROOT . "/files";
+        if (!empty($this->input["path"]))
+            $dir .= "/{$this->input["path"]}";
+
         $url = !empty($_POST["url"]) ? $_POST["url"] : null;
         if (!file_exists($dir) || !is_dir($dir))
             mkdir($dir);
@@ -804,6 +842,122 @@ class Base extends CustomBase
         $filename = DOCUMENT_ROOT . "/files/tempfiles/tempfile{$cycleNum}.TMP";
         $read   = json_decode(file_get_contents($filename)); // чтение файла
         return $read;
+    }
+
+    public function getIdImageFolder($dir)
+    {
+        $dir = trim($dir, "/");
+        if (empty($dir))
+            return null;
+
+        $u = new DB("image_folder", "imf");
+        $u->where("name = '?'", $dir);
+        $result = $u->fetchOne();
+        if (empty($result["id"])) {
+            $u = new DB("image_folder");
+            $u->setValuesFields(["name" => $dir]);
+            return $u->save();
+        }
+        return $result["id"];
+    }
+
+    public function saveImage($imagePath = null)
+    {
+        $imagePath = empty($imagePath) ? $this->input["imagePath"] : $imagePath;
+        if (empty($imagePath))
+            return null;
+
+        $file = basename($imagePath);
+        $dir = dirname($imagePath);
+        $idFolder = $this->getIdImageFolder($dir);
+        $u = new DB("image");
+        $u->where("name = '?'", $file);
+        if ($idFolder)
+            $u->andWhere("id_folder = ?", $idFolder);
+        else $u->andWhere("id_folder IS NULL");
+        $result = $u->fetchOne();
+        if (empty($result["id"])) {
+            $u = new DB("image");
+            $u->setValuesFields(["name" => $file, "idFolder" => $idFolder]);
+            return $u->save();
+        }
+        return $result["id"];
+    }
+
+    public function saveListImages($tableImages = null, $fieldLinkName = null)
+    {
+        $tableImages = empty($tableName) ? $this->tableName . "_image" : $tableImages;
+        $images = $this->input["images"];
+        if (!isset($images) || !DB::existTable($tableImages))
+            return true;
+
+        try {
+            if (empty($fieldLinkName)) {
+                $t = new DB("{$tableImages}");
+                $fieldLinkName = $t->getColumns()[1];
+            }
+            $idsItems = $this->input["ids"];
+            $idsStore = "";
+            $sort = 0;
+            foreach ($images as $image) {
+                $image["sort"] = $sort++;
+                if ($image["id"]) {
+                    if (!empty($idsStore))
+                        $idsStore .= ",";
+                    $idsStore .= $image["id"];
+                    $u = new DB("{$tableImages}", 'si');
+                    $u->setValuesFields($image);
+                    $u->save();
+                }
+                if (!empty($image["idImage"])) {
+                    if (!empty($image["alt"]) || !empty($image['title'])) {
+                        if ($image["idImage"])
+                            $data["id"] = $image["idImage"];
+                        $data["alt"] = $image["alt"];
+                        $data["title"] = $image['title'];
+                        $u = new DB('image');
+                        $u->setValuesFields($data);
+                        $u->save();
+                    }
+                }
+            }
+
+            $idsStr = implode(",", $idsItems);
+            if (!empty($idsStore)) {
+                $u = new DB("{$tableImages}", 'sgi');
+                $u->where("{$fieldLinkName} IN ($idsStr) AND NOT (id IN (?))", $idsStore)->deleteList();
+            } else {
+                $u = new DB("{$tableImages}", 'sgi');
+                $u->where("{$fieldLinkName} IN (?)", $idsStr)->deleteList();
+            }
+
+            $data = [];
+            $i = 0;
+
+            foreach ($images as $image) {
+                if ($image["id"]) {
+                    $u = new DB("{$tableImages}", 'sgi');
+                    $u->setValuesFields(["id" => $image["id"], "sort" => $i,
+                        'is_main' => isset($image["isMain"]) ? (bool)$image["isMain"] : !$i]);
+                    $u->save();
+                    continue;
+                }
+                foreach ($idsItems as $idItem) {
+                    if ($idImage = $this->saveImage($image))
+                        $data[] = ["{$fieldLinkName}" => $idItem, 'id_image' => $idImage, 'sort' => $i,
+                            'is_main' => isset($image["isMain"]) ? (bool)$image["isMain"] : !$i];
+                }
+                $i++;
+            }
+
+            if (!empty($data))
+                DB::insertList("{$tableImages}", $data);
+
+            return true;
+        } catch (Exception $e) {
+            $this->error = "Не удаётся сохранить изображения!";
+            throw new Exception($this->error);
+        }
     }
 
 

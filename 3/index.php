@@ -14,7 +14,7 @@ date_default_timezone_set("Europe/Moscow");
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
-define('API_VERSION', "2_dev");
+define('API_VERSION', "3");
 define('IS_EXT', file_exists($_SERVER['DOCUMENT_ROOT'] . '/system/main/init.php'));
 define('API_ROOT', $_SERVER['DOCUMENT_ROOT'] . '/api/' . API_VERSION . '/');
 define('API_ROOT_URL', "http://" . $_SERVER['SERVER_NAME'] . "/api/" . API_VERSION);
@@ -72,10 +72,10 @@ if (IS_EXT) {
     require_once 'lib/lib_se_function.php';
 } else {
     require_once '/home/e/edgestile/admin/home/siteedit/lib/function.php';
-    require_once '/home/e/edgestile/admin/home/siteedit/lib/lib_function.php';
+    //require_once '/home/e/edgestile/admin/home/siteedit/lib/lib_function.php';
 }
 
-require_once API_ROOT . "../2_dev/version.php";
+require_once API_ROOT . "../3/version.php";
 require_once API_ROOT . "vendor/autoload.php";
 
 /**
@@ -99,14 +99,14 @@ if (!empty($origin)) {
     if ($apiMethod == "OPTIONS")
         exit;
 }
-
-if (IS_EXT) {
-    $originalBuild = (int)file_get_contents(URL_API_ORIGINAL . "/update.php?method=getVersion");
-    if ($originalBuild > API_BUILD) {
-        $update = new Update(URL_API_ORIGINAL . "/update.php");
-        $update->exec();
-    }
-}
+//
+//if (IS_EXT) {
+//    $originalBuild = (int)file_get_contents(URL_API_ORIGINAL . "/update.php?method=getVersion");
+//    if ($originalBuild > API_BUILD) {
+//        $update = new Update(URL_API_ORIGINAL . "/update.php");
+//        $update->exec();
+//    }
+//}
 
 if (strpos($apiClass, "/Auth"))
     $apiClass = "Auth";
@@ -140,6 +140,7 @@ if (($apiClass == "Auth" || $apiClass == "TokenAuth") && strtolower($apiMethod) 
 define("HOSTNAME", $hostname);
 define('DOCUMENT_ROOT', IS_EXT ? $_SERVER['DOCUMENT_ROOT'] : '/home/e/edgestile/' . HOSTNAME . '/public_html');
 $dbConfig = DOCUMENT_ROOT . '/system/config_db.php';
+require_once DOCUMENT_ROOT . '/lib/lib_images.php';
 if (file_exists($dbConfig))
     require_once $dbConfig;
 else {
@@ -177,6 +178,7 @@ if (!method_exists($apiClass, $apiMethod)) {
  * @var array $phpInput получает данные параметра data из ajax
  * @var array $CONFIG получает DBName,HostName,DBUserName,DBPassword,DBDsn,DBSerial
  */
+
 $apiObject = new $apiClass($phpInput);
 if ($apiObject->initConnection($CONFIG))
     $apiObject->$apiMethod();

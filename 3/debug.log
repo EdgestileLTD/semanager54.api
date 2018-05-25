@@ -1,0 +1,7 @@
+
+[14:16:45:871] Exception: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'edgestile_150721.shop_warehouse_stock' doesn't exist
+[SI 0.000164] Exception: 
+[14:21:57:001] Exception: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'edgestile_150721.shop_warehouse_stock' doesn't exist
+[SI 0.000129] Exception: 
+[SI 1.001931] Exception: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'edgestile_150721.shop_group_translate' doesn't exist
+[14:22:07:883] Exception: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'edgestile_150721.shop_group_translate' doesn't exist
